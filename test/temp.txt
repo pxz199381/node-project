@@ -1,0 +1,364 @@
+温度云图：
+1、物理坐标，表示的是温度云图的中心点相对于温度云图父亲的中心点的偏移量；
+2、温度云图中collector的position，是相对于温度云图的parent的坐标。
+3、湿度的位置，如果有parentId的话，就将parent的坐标作为其位置（高度根据boundingBox自动计算）,若高度还想调整的话，可以更改物理坐标在y轴上的值
+
+link的流动效果设置：
+color:cyan
+flow:true
+
+在右边菜单上增加一个新的功能：
+1、修改navBar.js文件，根据需要看是在增加一个主模块，还是在某个模块下添加一个,子模块就加到主模块的items下。
+属性说明：
+id：div的id ；
+class： 样式；
+name：显示的名字；
+sceneId：在哪个场景下才显示出来。空和'all'表示所有的场景都显示；也可以填多个如：'floor，building'表示在floor和building场景下显示；
+click：点击该菜单时的事件，是个function，参数是navBarManager，appManager中有内置的实现方法，如告警的相关接口；（注意：当存在appId时，点击该菜单时，这个click的方法可能不会不被调用）；
+appId: 应用id，你可以通过向NavBarManager中AppManager实例注册应用(通过调用registerApp(appid,app)方法注册一个应用)来实现某个功能，而这个应用id就可以填上那个注册的appid。
+parameters: 调用appId时的参数，格式什么的随便写，该参数最终传到了doShow中做为doShow的参数
+2、注册应用(如果需要的话)：
+定义一个类，该类继承于it.Application，然后重写doShow和doClear方法。当然根据需要如是否要清空搜索，点击时是否需要重置镜头可以重写clearItSearch,resetCamera方法等。
+样例：
+var $CoolingPipeApp = function(sceneManager){
+	it.Application.call(this,sceneManager);
+};
+
+mono.extend($CoolingPipeApp,it.Application,{
+
+	init: function() {
+		this.app = new it.CoolingPipelineManager(this.sceneManager);
+	},
+
+	doShow: function() {
+		this.app.showCoolingPipeline();
+	},
+
+	doClear: function() {
+		this.app.hideCoolingPipeline();
+	}
+	
+});
+
+注册：main.navBarManager.appManager.registerApp('COOLINGPIPE',new it.CoolingPipeApp(main.sceneManager));
+
+3、（内部用）直接在AppManager中写方法，然后在click中直接调用该方法，如：AppManager中的showCurrentAlarm方法。
+然后配置中的如下：
+ {id:'current-alarm',class:'mo-alarm',name:'查看当前告警',sceneId:'',
+              click:function(scope){
+              	scope.appManager.showCurrentAlarm();
+              }
+ },
+
+
+4、根据温度场it获取温度Map的相关信息：
+var tm = main.navBarManager.appManager.appMaps["TEMP"].app.heatMaps["t3"].getTemperatureBoard()
+
+镜头动画说明:
+镜头动画是镜头在不同位置之间移动和查看资产信息等一连串动作称呼，由多个动作组成。在系统界面右上角点击“镜头动画”图标，弹出动画菜单。点击“更多”弹出镜头动画管理界面，显示所有的动画列表。
+镜头动画管理界面：
+点击“新增”按钮，弹出新建镜头动画界面，输入“动画名称”、“动画描述”和“所属场景”。
+点击“编辑”按钮，弹出编辑镜头动画界面，可以修改“动画名称”、“动画描述”和“所属场景”
+点击“删除”按钮，删除当前动画。
+点击“播放”按钮，播放动画
+
+镜头动作管理界面：
+点击“添加”按钮，将镜头的当前位置信息保存到记录中，作为该记录中的镜头位置和镜头目标，设置"等待时长"、"播放时长"和"保持时长"，输入字幕内容，点击数据编号，弹出资产选择框，选择对应的资产。
+点击“预览”按钮，隐藏当前界面，播放动画，动画播放完毕重新显示管理界面。
+点击"删除"按钮，删除该行记录。
+点击“保存”按钮，保存新增动画或编辑动画的结果。
+点击"隐藏"按钮，隐藏当前界面，方便调整镜头或者场景切换。点击镜头图标重新界面，继续编辑。
+点击"取消"，放弃本次新增(获编辑)的结果。
+
+镜头动画字段说明：
+动画名称:动画的名字,不能为空,并且唯一。
+动画描述:该动画详细信息。
+所属场景:动画播放时的起始场景,场景切换时,根据该字段动态显示当前场景支持的动画。
+镜头动画的具体动作字段说明：
+等待时长:等待一段时候开始移动镜头。
+播放时长:移动镜头所需的时间长度。
+保持时长:镜头移动完毕后,界面等待的时间长度。
+镜头位置:参照3D中镜头说明,镜头的位置信息,镜头将从当前位置移动到该位置。
+镜头目标:参照3D中镜头说明,镜头的目标信息,镜头将从当前查看的目标移动到该位置。
+字幕内容:在开始播放动画时,显示字幕,可以填写html元素。
+字幕位置:字幕距离屏幕底下的距离。
+数据编号:系统中的资产信息,在镜头移动后,可以查看一个资产信息。
+
+5、资产动态添加和删除的接口描述和相关情况说明：
+
+推送增加/更新：
+URL: /api/monitor/asset
+Method: post
+数据格式:
+{
+	资产001:{
+	  property:{
+	     name:'name001',
+	     parentId:'parent001',
+	     description:'description',
+	     position:{"x":10,"y":"","z":10},
+	     rotation:{"x":0,"y":0,"z":0},
+         location: {"x":0,"y":"neg_neg","z":0}
+	  },
+	  method:'update'
+	},
+	资产002:{
+	   property:{
+	     name:'name002',
+	     parentId:'parent001',
+	     description:'description',
+	     position:{"x":200,"y":"","z":10},
+	     rotation:{"x":0,"y":0,"z":0},
+         location: {"x":0,"y":"neg_neg","z":0}
+       },
+       method:'add' 
+	}
+}
+
+推送删除：
+URL:/api/monitor/asset/id=test001
+method:delete
+数据格式:无
+
+6、配置导航菜单：
+
+往navBar中增加dataJson.navBars=[]
+
+7、配置搜索框：
+
+资产搜索：往navBar中增加dataJson.itSearchItems=[]
+空间搜索：往navBar中增加dataJson.spaceSearchItems=[],内置里面永远有一个U的输入
+格式说明：
+ 说明1：{inputIndex:'it_key_text', //所创建的html的id
+     key:'id,description', //匹配的属性，如果是多个的话中间用“,”分开，一般情况下只有一个
+     placeholder:'请输入编号,描述', 
+     isClient:false, //key的来源，默认的是data上的属性；如果为true时，表示与data._userMap中的属性匹配
+     operation:'like', //通配浮：= ，>,<,like等等
+     style:'background: url("./css/images/insidesearch.svg")',
+     quickSearch:true //是不是快速搜索
+  }
+  说明2：可以是两个对象个数组，这样就能创建一行包含两对
+  {
+   colunms:[
+      {
+        inputIndex : 'txt_DataFrom',
+        inputType:'date',
+        key:'installDate',
+        operation:'>=',
+        label:'安装日期'
+      },
+      {
+        inputIndex : 'txt_DataTo',
+        inputType:'date',
+        key:'installDate',
+        operation:'<=',
+        label:'-'
+      }
+     ]
+  }
+  说明3：
+  {inputIndex:'txt_location',
+     key:'ancestor',
+     inputType:'select',
+     label:'位置',
+     isClient:true,
+     source:'createAreaOption', //像select这样组件，有许多的options,options的来源可以是程序中的function，“createAreaOption”是内部的函数，也可以是自己这里列出来
+     // source:['A','B','C']
+   },
+
+8、温/湿度气泡的颜色样式配置：
+温湿度图标配置参数说明：
+目前对于温/湿度的图标样式，我们系统内最多支持4级样式设置，每个级别的样式用户可以自己定义，样式包括图片，字体的大小、颜色和位置，以及是否显示温湿度的单位等。
+如温度的blue级：
+tem_blue:{
+   src:"",//这个是背景图片的base64格式，如果用户想使用自己的样式图片，那可以将其相关的图片转码一下(有很多网站支持在线转的)
+   parms:{
+      color:'#000000', //字体的颜色
+      size: 40,  //字体的大小
+      fontFamily:'DigifaceWide',//字体的样式，默认是微软雅黑。需要注意的是：所引用的字体浏览器中一定事先有引入
+      stroke:false, //字是否是镂空的
+      lineWidth: 4, //当stroke为true时有效
+      width: 204, //将图标画到的canvas的长
+      height: 430, //将图标画到的Canvas的高
+      startX: 75, //(startX,startY)表示的是字在Canvas上开始的位置
+      startY: 220,
+      scaleX:204, //scaleX,scaleY是billboard的缩放比例
+      scaleY:430,
+      withUnit:true // 是否显示单位
+    }
+}
+温度除了tem_blue级，还有tem_green、tem_yellow和tem_red级，相关参数说明和上面的tem_blue一样。
+
+湿度的四个级别分别是：hum_blue、hum_green、hum_yellow、hum_red，参数说明跟上面的温度一样。
+
+
+9、属性框配置说明：
+label:显示的Label；
+pro:表示的是数据源的那个属性;
+origin:表示数据源来自哪里，有data，datatype，category以及data的client,当这个值为null或没填时，pro对应的值就是最终显示的值
+实例：[
+  {
+    "label": "设备编号",
+    "pro": "id",
+    "origin": "data" 
+  },
+  {
+    "label": "供应商",
+    "pro": "供应商",
+    "origin": "client"
+  },
+  {
+    "label": "制造商",
+    "pro": "制造商",
+    "origin": "client"
+  }
+]
+
+10、开启造动态温/湿度和告警数据
+在script/config.js中，将“enableFakeServer“设置成true就开启了，没有这个属性或为false时就关闭了
+如："enableFakeServer:true"
+
+11、iframe中嵌入3ddatacenter,和3ddatacenter通讯，我们写了两个实现方式：
+实例见iframewithdc.html
+
+12、tree上的排序按id还是按name,如果是按id的话，在navBar.js中将sortById置成true(没有就增加这个属性)，默认是按name排序的：
+sortById:true
+
+13、后端启用redis存储KPI数据步骤：
+见文档《enableRedis说明.txt》
+
+14、告警报表默认就显示：
+在系统设置中可以设置；
+
+15、用户将自己的页面嵌入到双击设备后出来的dialog中：
+编辑“分类管理”，让后将自己的url地址输入“自定义页面”(或“performanceUrl”)中，支持多个url，每个url是一个tab，格式如下：
+[{"title":"性能信息","src":"http://www.dangdang.com/"},
+  {"title":"定制属性2","src":"http://servasoft.com/dcim"},
+  {"title":"自定义tab3","src":"http://servasoft.com/blog"}]
+
+16、告警状态码使用说明
+  1、找到告警状态模块，所在位置为http://server:port/admin/
+  2、在告警状态模块，添加记录，状态码、名称、动作
+    状态码：string，唯一标识符
+    名称：string，状态的名称
+    动作：ENUM("create"、"delete")，当收到一个告警时，根据告警的状态码做的动作，默认为create
+  3、在推送的告警对象中，属性status对应着告警状态模块的状态码
+  4、例如下面代码，推送status为0的告警，此状态码对应的动作是删除，最终告警编号为realId003的告警会被删除
+  $('#btnAlarm').click(function(event) {
+      $.post(
+          '/api/monitor/alarms', 
+          {
+              'data': {data: [{alarmId: 'realId003', status: '0'}]},
+              dataType:'json', 
+              contentType:'application/json',
+          },
+          function(data, textStatus, xhr) {
+            
+          }
+      );
+  });
+
+17、告警tooltip中以table的方式显示告警信息：
+在navbar.js中将showAlarmTableForAlarmTooltip设置成true即可；
+
+18、PDF演示文档与3D机房联动API说明：
+首先要注意的是，要想联动就需要创建link，而link的url表示的是要链接到的地方,如:看资产rack001时，url就是"/?id=rack001"；
+【1】、id:表示的是查看该id对应的资产，格式是"/?id="，如果没有值的话，就是定位到随意的一个资产；
+【2】、categoryId+'Id'(即资产类别的id+字符串Id):表示的是要看某个类别的某个对象,格式是"/?rackId=",若果=后有值的话就是看这个值对应的资产，没有值的话，就是随机的。如想看一个机柜rack001，那就写"/?rackId=rack001"，如果想看随意一个机柜，那就"/?rackId=";同理如果想定位到设备就equipmentId，其他的也同理；
+【3】、alarmId:表示定位某个告警资产，格式是"/?alarmId="，后面没有值的话，就是定位到随意的一个告警所对应的资产;
+【4】、cameraAnimateId:表示的是播放动画的id，如果没有传入id的话，就在当前场景动画中随机找一个运行，没有的话就不执行了；
+
+19、自定义pdf演示文档的存储路径(默认是在pdfs中)：
+在script/config.js中加上pdfFolderName属性(若没有就加上)，后面就是文件的存储路径，需要注意的是，若是已经上传过pdf演示文档的话，就不要再设置了，否则的话前端演示时可能会找不到，当然你可以先将所有的都删除掉然后再重新上传；
+
+20、navBar.js中的dataJson.isAnimateTempField控制温度场是否有从上到下变化的动画；
+
+21. 设备上下架使用步骤
+1 打开界面：http://localhost:8081/rackEditor.html
+2 在左侧工具栏上部分，找到需要上架的机柜，可以输入编号和剩余的连续 U 数进行模糊搜索机柜。
+3 点击机柜，在中间的工作区显示机柜的前视图。
+4 上架
+4.1 在左侧工具栏下部分，找到需要上架的设备，在设备图标上按下鼠标左键，拖拽到中间工作区，显示在正确位置后,松开鼠标放置设备在机柜里。
+4.2 机柜中的设备，可以使用鼠标左键按住，上下拖拽移动位置，已经被占用的位置会自动跳过。
+4.3 点击选中设备，在右侧设备属性框中输入设备的基本信息。
+4.4 在右上角菜单栏找到 “保存” 按钮，点击保存上架结果。
+5 下架
+5.1 选中机柜中设备，按键盘 delete 键下架设备
+5.2 在右上角菜单栏找到 “保存” 按钮，点击保存下架结果。
+6 修改设备信息
+6.1 选中机柜中的设备，在右侧属性框会显示设备的基本信息，在输入框中修改需要修改的内容。
+6.2 选中机柜中的设备，鼠标左键按住可以上下拖动，移动设备变更位置。
+6.3 在右上角菜单栏找到 “保存” 按钮，点击保存下架结果。
+
+22、插件开发和配置，按照plugin中的规范，写好插件后在开发好后在navBar.js中的datajson.plugins中注入进去；
+
+23、setFocus(所有的lookAt)时，使某些对象不虚化的配置，在navbar中设置datajson.unVirtualCategoryForFocus，如：['floor']表示的是lookAt任何对象时楼层不虚化；
+
+24、设备面板：
+   基本信息：自定义属性分组显示，按照扩展表中的组进行分组显示在基本信息下面；
+   自定义的url:如果想嵌入自己的url带设备面板中，可以在category中的“自定义页面”中填写页面的url；支持多个url，输入数组的话可填入多个url，每个url会单独创建一个tab
+
+25、镜头LookAt(定位)到某个对象时，是否虚化其他的对象：
+navBar.js中的dataJson.isVirtualOthersWhenLookAt为false时就不虚化，否则是虚化的，默认没有填写是虚化的
+
+26、资产搜索时，有些类别的资产自动过滤掉，不在显示列表上显示，如：树。
+navBar.js中的dataJson.ITSearchFilterList=[],数组中填上你所要过滤的资产类别，如：['tree','shu']
+
+27、右下角的这一块统一整合了一下，有两种显示方式：一种是以前的按照scene(场景)来的；第二种是根据LookAt的对象来的。sceneInfo中有个setChangeByFocus方法，当参数是false时是第一种，true时是第二种
+
+28、lookAt设备时不想虚化该设备对应的机柜，及其机柜内的设备：
+    var dm = main.sceneManager.viewManager3d.defaultMaterialFilter;
+    var oldIsDealWithFunction = dm.isDealWithFunction;
+    dm.isDealWithFunction = function(data){
+        var focusNode = main.sceneManager.viewManager3d.getFocusNode();
+        var fData = main.sceneManager.getNodeData(focusNode);
+        var fDataCategory = main.sceneManager.dataManager.getCategoryForData(fData);
+        if (data && fData 
+            && fDataCategory 
+            && fDataCategory.getId() =='equipment' 
+            && data.getParentId 
+            && fData.getParentId
+            && (data.getParentId() == fData.getParentId() || data.getId() == fData.getParentId())) {
+            return false;
+        }
+        if(oldIsDealWithFunction){
+            return oldIsDealWithFunction.call(dm,data);
+        }
+        return true;
+    }
+
+29、navBar.js中的dataJson.isClearCache，表示是否启用清除对象缓存的功能。默认的是false，表示不清除的，不清除的话第二次进入的时候比较快，但是当有多个场景，每个场景的对象都比较大时会导致浏览器崩溃。
+
+30、dataJson.resetCameraWhenAppChange:表示功能模块切换时是否重置摄像头，不设置内部就当true处理；
+
+31、合并dataCenter之后的扩展字段：
+
+isGroup：这里要设置为false（字符串的"false"也不行）。否则的话，在点击进入园区时的gotoScene拿到的是earth（新dc的parent为earth），即进入不了园区场景
+boardPos：进入national场景显示的园区图片的位置
+areaPos：进入area场景，也就是某个省的地形时，dc的位置
+
+
+32、权限开启使用说明：
+后端的config.js
+adminLogin:true,
+login: true,
+openPermission:true,
+onlyLogin:true,
+
+以及前端的navBar.js中开启：
+enablePermission: true
+
+33、开启园区中漂浮着的云：
+dataJson.playCloud，默认的是没有浮动着的云的
+
+34、关闭园区和简单对象为obj的对象的提前加载的功能：
+dataJson.isPreLoad，默认的是不加载的
+
+35、navBar上的项是否显示的控制：
+navbar.js中的isShow、NavbarMgr的checkItemFunction，以及app中的hasData(一般是用来判断是否有该app的数据，如果没有则不显示),其中有一个为false就不显示。
+
+36.设置查看楼层时是否虚化楼层
+dataJson.virtualFloorWhenLink 
+
+37.位置推荐时默认显示的对象
+dataJson.recommendedAppVisibleCategoryMap
